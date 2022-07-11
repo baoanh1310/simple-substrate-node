@@ -30,7 +30,6 @@ pub mod pallet {
 		price: u32,
 		gender: Gender
 	}
-	pub type Id = u32;
 
 	#[derive(TypeInfo, Encode, Decode, Debug, Clone)]
 	pub enum Gender {
@@ -55,25 +54,11 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
-	// The pallet's runtime storage items.
-	// https://docs.substrate.io/v3/runtime/storage
-	#[pallet::storage]
-	#[pallet::getter(fn kitty_id)]
-	// Learn more about declaring storage items:
-	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
-	pub type KittyId<T> = StorageValue<_, Id, ValueQuery>;
-
 	#[pallet::storage]
 	#[pallet::getter(fn kitty_quantity)]
 	// Learn more about declaring storage items:
 	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
 	pub type KittyQuantity<T> = StorageValue<_, u32, ValueQuery>;
-
-	// key: id
-	// value: kitty
-	#[pallet::storage]
-	#[pallet::getter(fn kitty)]
-	pub(super) type Kitties<T: Config> = StorageMap<_, Blake2_128Concat, Id, Kitty<T>, OptionQuery>;
 
 	// key: dna
 	// value: kitty
@@ -131,11 +116,6 @@ pub mod pallet {
 				gender: gender,
 				owner: who.clone(),
 			};
-			let mut current_id = <KittyId<T>>::get();
-
-			<Kitties<T>>::insert(current_id, kitty.clone());
-			current_id += 1;
-			KittyId::<T>::put(current_id);
 
 			let mut current_quantity = <KittyQuantity<T>>::get();
 			current_quantity += 1;
