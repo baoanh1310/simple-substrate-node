@@ -95,6 +95,7 @@ pub mod pallet {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		KittyStored(Vec<u8>, u32),
+		KittyTransfered(Vec<u8>, T::AccountId, T::AccountId),
 	}
 
 	// Errors inform users that something went wrong.
@@ -102,6 +103,7 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Error names should be descriptive.
 		TooExpensive,
+		InvalidKittyOwner,
 		/// Errors should have helpful documentation associated with them.
 		StorageOverflow,
 	}
@@ -150,6 +152,36 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		pub fn transfer_kitty(origin: OriginFor<T>, dna: Vec<u8>, receiver_id: T::AccountId) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+			// ensure the dna of kitty is belong to the sender
+			let mut sender_kitties_list = <OwnerKitties<T>>::get(sender.clone()).unwrap_or_else(|| Vec::new());
+			let mut is_owner = false;
+			let mut kitty_index = 0;
+			for (idx, val) in sender_kitties_list.iter().enumerate() {
+				if dna == *val {
+					is_owner = true;
+					kitty_index = idx;
+					break;
+				}
+			}
+			ensure!(is_owner == true, Error::<T>::InvalidKittyOwner);
+
+			// remove kitty from OwnerKitties mapping with sender's accountId as key
+			sender_kitties_list.remove(kitty_index);
+			<OwnerKitties<T>>::insert(sender.clone(), sender_kitties_list);
+
+			// insert kitty to receiver mapping
+			let mut receiver_kitties_list = <OwnerKitties<T>>::get(receiver_id.clone()).unwrap_or_else(|| Vec::new());
+			receiver_kitties_list.push(dna.clone());
+			<OwnerKitties<T>>::insert(receiver_id.clone(), receiver_kitties_list);
+
+			// Emit transfer event
+			Self::deposit_event(Event::KittyTransfered(dna.clone(), sender.clone(), receiver_id.clone()));
+
+			Ok(())
+		}
 	}
 }
 
