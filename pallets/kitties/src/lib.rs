@@ -20,7 +20,7 @@ use sp_std::vec::Vec;
 use scale_info::TypeInfo;
 pub type Id = u32;
 use sp_runtime::ArithmeticError;
-use frame_support::traits::{ UnixTime, Get };
+use frame_support::traits::{ UnixTime, Get, Randomness };
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -47,6 +47,7 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type MyTime: UnixTime;
+		type MyRandomness: Randomness<Self::Hash, Self::BlockNumber>;
 		#[pallet::constant]
 		type KittyLimit: Get<u32>;
 	}
@@ -63,8 +64,8 @@ pub mod pallet {
 	pub type KittyId<T> = StorageValue<_, Id, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn test_value)]
-	pub type TestValue<T> = StorageValue<_, u32, ValueQuery>;
+	#[pallet::getter(fn get_nonce)]
+	pub type Nonce<T> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_kitty)]
@@ -82,7 +83,7 @@ pub mod pallet {
 		/// A new kitty was successfully created.
 		Created { kitty: Vec<u8>, owner: T::AccountId },
 		Transferred { from: T::AccountId, to: T::AccountId, kitty:Vec<u8> },
-
+		UniqueCreated
 	}
 
 	// Errors inform users that something went wrong.
@@ -111,6 +112,7 @@ pub mod pallet {
 
 			let gender = Self::gen_gender(&dna)?;
 			let current_time = T::MyTime::now().as_millis();
+
 			let kitty = Kitty::<T> { 
 				dna: dna.clone(), 
 				price: 0, 
@@ -142,6 +144,52 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		#[pallet::weight(0)]
+		pub fn create_kitty_random(origin: OriginFor<T>) -> DispatchResult {
+			// Make sure the caller is from a signed origin
+			let owner = ensure_signed(origin)?;
+
+			// Random value.
+			let nonce = Self::get_and_increment_nonce();
+			let (random_value, _) = T::MyRandomness::random(&nonce);
+			let dna = random_value.encode();
+
+			let gender = Self::gen_gender(&dna)?;
+			let current_time = T::MyTime::now().as_millis();
+
+			let kitty = Kitty::<T> { 
+				dna: dna.clone(), 
+				price: 0, 
+				gender: gender, 
+				owner: owner.clone(),
+				created_date: current_time,
+			};
+
+			// Check if the kitty does not already exist in our storage map
+			ensure!(!Kitties::<T>::contains_key(&kitty.dna), Error::<T>::DuplicateKitty);
+
+			// Check if number of kitties owned by one account less than or equal to 3
+			let kitty_owned_list = KittiesOwned::<T>::get(&owner);
+			ensure!(kitty_owned_list.clone().len() < T::KittyLimit::get() as usize, Error::<T>::TooManyKitty);
+
+			// Performs this operation first as it may fail
+			let current_id = KittyId::<T>::get();
+			let next_id = current_id.checked_add(1).ok_or(ArithmeticError::Overflow)?;
+
+			// Append kitty to KittiesOwned
+			KittiesOwned::<T>::append(&owner, kitty.dna.clone());
+
+			// Write new kitty to storage
+			Kitties::<T>::insert(kitty.dna.clone(), kitty);
+			KittyId::<T>::put(next_id);
+
+			// Deposit our "Created" event.
+			Self::deposit_event(Event::Created { kitty: dna, owner: owner.clone()});
+
+			Ok(())
+		}
+
 		#[pallet::weight(0)]
 		pub fn transfer(
 			origin: OriginFor<T>,
@@ -176,6 +224,7 @@ pub mod pallet {
 
 			Ok(())
 		}
+
 	}
 }
 
@@ -186,5 +235,13 @@ impl<T> Pallet<T> {
 			res = Gender::Male;
 		}
 		Ok(res)
+	}
+}
+
+impl<T:Config> Pallet<T> {
+	fn get_and_increment_nonce() -> Vec<u8> {
+		let nonce = Nonce::<T>::get();
+		Nonce::<T>::put(nonce.wrapping_add(1));
+		nonce.encode()
 	}
 }
