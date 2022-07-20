@@ -20,6 +20,7 @@ use sp_std::vec::Vec;
 use scale_info::TypeInfo;
 pub type Id = u32;
 use sp_runtime::ArithmeticError;
+use frame_support::traits::{ UnixTime, Get };
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -32,6 +33,7 @@ pub mod pallet {
 		pub price: u64,
 		pub gender: Gender,
 		pub owner: T::AccountId,
+		pub created_date: u128,
 	}
 	#[derive(Clone, Encode, Decode, PartialEq, Copy, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub enum Gender {
@@ -44,6 +46,9 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type MyTime: UnixTime;
+		#[pallet::constant]
+		type KittyLimit: Get<u32>;
 	}
 
 	#[pallet::pallet]
@@ -56,6 +61,10 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn kitty_id)]
 	pub type KittyId<T> = StorageValue<_, Id, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn test_value)]
+	pub type TestValue<T> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_kitty)]
@@ -84,7 +93,7 @@ pub mod pallet {
 		NoKitty,
 		NotOwner,
 		TransferToSelf,
-
+		TooManyKitty,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -101,10 +110,21 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 
 			let gender = Self::gen_gender(&dna)?;
-			let kitty = Kitty::<T> { dna: dna.clone(), price: 0, gender, owner: owner.clone() };
+			let current_time = T::MyTime::now().as_millis();
+			let kitty = Kitty::<T> { 
+				dna: dna.clone(), 
+				price: 0, 
+				gender: gender, 
+				owner: owner.clone(),
+				created_date: current_time,
+			};
 
 			// Check if the kitty does not already exist in our storage map
 			ensure!(!Kitties::<T>::contains_key(&kitty.dna), Error::<T>::DuplicateKitty);
+
+			// Check if number of kitties owned by one account less than or equal to 3
+			let kitty_owned_list = KittiesOwned::<T>::get(&owner);
+			ensure!(kitty_owned_list.clone().len() < T::KittyLimit::get() as usize, Error::<T>::TooManyKitty);
 
 			// Performs this operation first as it may fail
 			let current_id = KittyId::<T>::get();

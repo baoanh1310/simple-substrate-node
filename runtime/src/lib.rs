@@ -272,6 +272,8 @@ impl pallet_template::Config for Runtime {
 /// Configure the pallet-kitties in pallets/kitties
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
+	type MyTime = pallet_timestamp::Pallet<Runtime>;
+	type KittyLimit = ConstU32<3>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
