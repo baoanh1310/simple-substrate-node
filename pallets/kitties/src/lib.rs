@@ -13,7 +13,6 @@ pub use pallet::*;
 
 // #[cfg(feature = "runtime-benchmarks")]
 // mod benchmarking;
-
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_std::vec::Vec;
@@ -21,12 +20,13 @@ use scale_info::TypeInfo;
 pub type Id = u32;
 use sp_runtime::ArithmeticError;
 use frame_support::traits::{ UnixTime, Get, Randomness };
+use frame_support::dispatch::fmt;
 
 #[frame_support::pallet]
 pub mod pallet {
 
 	pub use super::*;
-	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Encode, Decode, PartialEq, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Kitty<T: Config> {
 		pub dna: Vec<u8>,
@@ -35,10 +35,23 @@ pub mod pallet {
 		pub owner: T::AccountId,
 		pub created_date: u128,
 	}
+
 	#[derive(Clone, Encode, Decode, PartialEq, Copy, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub enum Gender {
 		Male,
 		Female,
+	}
+
+	impl<T:Config> fmt::Debug for Kitty<T> {
+		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+			f.debug_struct("Kitty")
+			 .field("dna", &self.dna)
+			//  .field("price", &self.price)
+			 .field("gender", &self.gender)
+			 .field("owner", &self.owner)
+			 .field("created_date", &self.created_date)
+			 .finish()
+		}
 	}
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -116,7 +129,7 @@ pub mod pallet {
 			let kitty = Kitty::<T> { 
 				dna: dna.clone(), 
 				price: 0, 
-				gender: gender, 
+				gender: gender.clone(), 
 				owner: owner.clone(),
 				created_date: current_time,
 			};
@@ -138,6 +151,13 @@ pub mod pallet {
 			// Write new kitty to storage
 			Kitties::<T>::insert(kitty.dna.clone(), kitty);
 			KittyId::<T>::put(next_id);
+
+			// logging
+			log::info!("Current Id: {}", current_id);
+			log::info!("DNA: {:?}", dna.clone());
+			log::info!("Gender: {:?}", gender);
+			log::info!("Owner: {:?}", owner.clone());
+			log::info!("Created date: {}", current_time);
 
 			// Deposit our "Created" event.
 			Self::deposit_event(Event::Created { kitty: dna, owner: owner.clone()});
