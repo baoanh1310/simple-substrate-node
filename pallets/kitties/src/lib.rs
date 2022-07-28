@@ -5,14 +5,14 @@
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 
-// #[cfg(test)]
-// mod mock;
+#[cfg(test)]
+mod mock;
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 
-// #[cfg(feature = "runtime-benchmarks")]
-// mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_std::vec::Vec;
@@ -108,6 +108,7 @@ pub mod pallet {
 		NotOwner,
 		TransferToSelf,
 		TooManyKitty,
+		NoneValue,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -118,7 +119,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T:Config> Pallet<T> {
 
-		#[pallet::weight(0)]
+		#[pallet::weight(22_000_000 + T::DbWeight::get().reads_writes(4, 3))]
 		pub fn create_kitty(origin: OriginFor<T>, dna: Vec<u8>) -> DispatchResult {
 			// Make sure the caller is from a signed origin
 			let owner = ensure_signed(origin)?;
@@ -165,7 +166,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(19_000_000 + T::DbWeight::get().reads_writes(6, 4))]
 		pub fn create_kitty_random(origin: OriginFor<T>) -> DispatchResult {
 			// Make sure the caller is from a signed origin
 			let owner = ensure_signed(origin)?;
@@ -210,7 +211,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(18_000_000 + T::DbWeight::get().reads_writes(3, 3))]
 		pub fn transfer(
 			origin: OriginFor<T>,
 			to: T::AccountId,
