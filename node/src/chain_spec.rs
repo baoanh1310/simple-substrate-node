@@ -1,6 +1,6 @@
 use node_template_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY,
+	SystemConfig, WASM_BINARY, KittiesModuleConfig,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -132,6 +132,7 @@ fn testnet_genesis(
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
+
 	GenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
@@ -152,5 +153,27 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
+		kitties_module: KittiesModuleConfig {
+			genesis_kitties: gen_kitties()
+		}
 	}
+}
+
+fn gen_kitties() -> Vec<(AccountId, Vec<u8>, u32)> {
+	let mut kitties: Vec<(AccountId, Vec<u8>, u32)> = Vec::new();
+	let owner = get_account_id_from_seed::<sr25519::Public>("Alice");
+
+	let sample_dnas = vec![
+		b"icebear1".to_vec(), 
+		b"icebear2".to_vec()
+	];
+
+	for index in 0..2 {
+		let dna = &sample_dnas[index];
+		let dna: Vec<u8> = dna.to_vec();
+		let price = 0;
+		kitties.push((owner.clone(), dna, price));
+	}
+
+	kitties
 }

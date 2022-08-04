@@ -88,6 +88,41 @@ pub mod pallet {
 	#[pallet::getter(fn kitty_owned)]
 	pub(super) type KittiesOwned<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub genesis_kitties: Vec<(T::AccountId, Vec<u8>, u32)>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T:Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self {
+				genesis_kitties: vec![]
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T:Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			for (index, (owner, dna, price)) in self.genesis_kitties.iter().enumerate() {
+				let gender = Pallet::<T>::gen_gender(&dna).unwrap();
+				let current_time = T::MyTime::now().as_millis();
+				let kitty = Kitty::<T> {
+					owner: owner.clone(),
+					dna: dna.clone(),
+					gender: gender.clone(),
+					price: *price as u64,
+					created_date: current_time,
+				};
+				let current_id = index + 1;
+				KittyId::<T>::put(current_id as u32);
+				KittiesOwned::<T>::append(&owner, kitty.dna.clone());
+				Kitties::<T>::insert(kitty.dna.clone(), kitty);
+			}
+		}
+	}
+
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
 	#[pallet::event]
